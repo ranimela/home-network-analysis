@@ -173,8 +173,8 @@ def parse_nmap_xml(xml_content: str) -> list[DiscoveredEndpoint]:
                 state_str = (
                     state_el.get("state", "open").upper() if state_el is not None else "OPEN"
                 )
-                if state_str not in ("OPEN", "FILTERED", "CLOSED"):
-                    state_str = "OPEN"
+                if state_str != "OPEN":
+                    continue
 
                 service_el = p.find("service")
                 service_name = service_el.get("name") if service_el is not None else None
@@ -326,6 +326,7 @@ class NmapScanner:
             str(self.nmap_bin),
             "-sT",  # Connect scan
             "-T4",  # Aggressive timing for rapid feedback
+            "--open",  # Only return genuinely open ports
             "--top-ports",
             str(top_ports),
             "-oX",

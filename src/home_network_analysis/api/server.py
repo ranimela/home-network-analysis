@@ -135,8 +135,15 @@ def create_app(
             clean_ip = validated_ip.split("/")[0]
             services = await scanner.run_targeted_port_scan(clean_ip, top_ports=body.top_ports)
 
-            # Persist to repository
+            # Persist to repository (replace with fresh open ports)
             async with db_manager.connect() as conn:
+                await conn.execute(
+                    """
+                    DELETE FROM device_services
+                    WHERE fingerprint_id IN (SELECT fingerprint_id FROM devices WHERE ip_address = ?)
+                    """,
+                    (clean_ip,),
+                )
                 for s in services:
                     await conn.execute(
                         """
