@@ -1,134 +1,424 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Network Analysis & Monitor</title>
+  <title>Home Network Monitor — Command Center</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f0fdf4',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d',
-            }
+            canvas: '#fcfaf7',
+            'on-canvas': '#423d38',
+            surface: '#f3f4f6',
+            'surface-soft': '#edebe9',
+            'surface-elevated': '#ffffff',
+            'on-surface': '#423d38',
+            'on-surface-muted': '#797067',
+            outline: '#e3e0dd',
+            'outline-strong': '#d1d5dc',
+            primary: '#fe6e00',
+            'primary-strong': '#ff6b00',
+            'primary-warm': '#ffb74d',
+            'primary-focus': '#f97015',
+            success: '#00c758',
+            warning: '#edb200',
+            danger: '#fb2c36',
+            info: '#3080ff',
+          },
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+          boxShadow: {
+            subtle: '0 1px 3px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.06)',
+            raised: '0 4px 12px rgba(0, 0, 0, 0.12)',
           }
         }
       }
     }
   </script>
+  <style>
+    body {
+      background-color: #fcfaf7;
+      color: #423d38;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    /* Dark Frosted Application Shell */
+    .frosted-shell {
+      background-color: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .shell-border-r {
+      border-right: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    .shell-border-b {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    .shell-input {
+      background-color: rgba(255, 255, 255, 0.10);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      height: 36px;
+      padding: 0 12px;
+      font-size: 0.875rem;
+      transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .shell-input::placeholder {
+      color: rgba(255, 255, 255, 0.50);
+    }
+    .shell-input:focus {
+      outline: none;
+      border-color: #f97015;
+      box-shadow: 0 0 0 2px rgba(249, 112, 21, 0.25);
+      background-color: rgba(255, 255, 255, 0.14);
+    }
+    .nav-item {
+      background-color: transparent;
+      color: rgba(255, 255, 255, 0.70);
+      font-size: 0.8125rem;
+      font-weight: 700;
+      line-height: 1rem;
+      border-radius: 8px;
+      padding: 8px 12px;
+      transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+    }
+    .nav-item:hover {
+      background-color: rgba(254, 110, 0, 0.85);
+      color: #ffffff;
+    }
+    .nav-item-active {
+      background-color: #fe6e00;
+      color: #ffffff;
+    }
+    .btn-primary {
+      background-color: #fe6e00;
+      color: #ffffff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.25rem;
+      border-radius: 6px;
+      height: 40px;
+      padding: 0 16px;
+      transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: #ff6b00;
+    }
+    .table-header-row {
+      background-color: rgba(254, 110, 0, 0.05);
+      color: #ff6b00;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      height: 48px;
+      text-transform: uppercase;
+    }
+    .label-operational {
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    /* Semantic Status Badges */
+    .badge-production {
+      background-color: #dcfce7;
+      color: #016630;
+    }
+    .badge-planned {
+      background-color: #f3f4f6;
+      color: #364153;
+    }
+    .badge-development {
+      background-color: #dbeafe;
+      color: #1447e6;
+    }
+    .badge-integrated {
+      background-color: #f3e8ff;
+      color: #8200da;
+    }
+    .badge-mock {
+      background-color: #fef9c2;
+      color: #874b00;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    
-    <!-- Top Header -->
-    <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
-      <div>
-        <div class="flex items-center gap-3">
-          <div class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight text-white">Home Network Monitor</h1>
-            <p class="text-xs text-slate-400">Subnet: <span id="subnet-badge" class="font-mono text-emerald-400">Probing...</span> • Engine: <span class="text-slate-300">Nmap + SQLite WAL</span></p>
-          </div>
+<body class="min-h-screen flex antialiased selection:bg-primary selection:text-white">
+
+  <!-- Left Frosted Application Shell Sidebar (256px) -->
+  <aside class="frosted-shell shell-border-r w-64 shrink-0 hidden lg:flex flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none">
+    <div class="space-y-6">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3 px-2 py-1">
+        <div class="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white shadow-raised">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+          </svg>
+        </div>
+        <div>
+          <div class="text-white font-bold text-sm tracking-tight leading-tight">HOME NETOPS</div>
+          <div class="text-[11px] font-mono text-primary-warm tracking-wider uppercase">Command Center</div>
         </div>
       </div>
-      
-      <div class="flex items-center gap-3 w-full sm:w-auto">
-        <button id="scan-btn" onclick="triggerSubnetScan()" class="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-lg shadow-emerald-950/50 active:scale-95 disabled:opacity-50">
-          <svg id="scan-spinner" class="w-4 h-4 hidden animate-spin" fill="none" viewBox="0 0 24 24">
+
+      <!-- Navigation Section -->
+      <div class="space-y-1">
+        <div class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/40">Operations</div>
+        <button id="nav-all" onclick="setFilter('ALL')" class="nav-item nav-item-active">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+          <span>All Endpoints</span>
+        </button>
+        <button id="nav-online" onclick="setFilter('ONLINE')" class="nav-item">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+          </svg>
+          <span>Active Online</span>
+        </button>
+        <button id="nav-ports" onclick="setFilter('PORTS')" class="nav-item">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span>Exposed Services</span>
+        </button>
+        <button onclick="document.getElementById('timeline-section').scrollIntoView({behavior: 'smooth'})" class="nav-item">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Presence Audit Log</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Telemetry Status Box -->
+    <div class="p-3.5 rounded-lg bg-white/5 border border-white/10 space-y-2.5 text-xs">
+      <div class="flex items-center justify-between">
+        <span class="text-white/60 font-medium">Collector Engine</span>
+        <span class="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Nmap 7.99
+        </span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-white/60">Persistence</span>
+        <span class="text-white/90 font-mono text-[11px]">SQLite WAL</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-white/60">Sweep Cadence</span>
+        <span class="text-primary-warm font-mono text-[11px]">60s Tiered</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Column: Top Frosted Shell Header + Warm Light Workspace -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- Top Frosted Application Header (64px height) -->
+    <header class="frosted-shell shell-border-b h-16 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20 gap-4">
+      <div class="flex items-center gap-4 flex-1 max-w-xl">
+        <div class="relative w-full max-w-sm">
+          <svg class="w-4 h-4 text-white/50 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            id="search-input"
+            type="text"
+            oninput="renderDevices()"
+            placeholder="Filter hostname, IP, MAC, or vendor..."
+            class="shell-input w-full pl-9"
+          />
+        </div>
+        <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-white/80">
+          <span class="text-white/50">Scope:</span>
+          <span id="subnet-badge" class="font-mono text-primary-warm font-semibold">Probing...</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="scan-btn" onclick="triggerSubnetScan()" class="btn-primary flex items-center justify-center gap-2 shadow-subtle active:scale-[0.99] disabled:opacity-50 cursor-pointer">
+          <svg id="scan-spinner" class="w-4 h-4 hidden animate-spin text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <svg id="scan-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
           <span id="scan-text">Scan Subnet Now</span>
         </button>
       </div>
     </header>
 
-    <!-- Metrics Bar -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
-      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Discovered</div>
-        <div id="stat-total" class="text-2xl font-bold text-white mt-1">0</div>
-      </div>
-      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-        <div class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Active Online</div>
-        <div id="stat-online" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
-      </div>
-      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-        <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Offline / Past</div>
-        <div id="stat-offline" class="text-2xl font-bold text-slate-400 mt-1">0</div>
-      </div>
-      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-        <div class="text-xs font-medium text-blue-400 uppercase tracking-wider">Open Services</div>
-        <div id="stat-services" class="text-2xl font-bold text-blue-400 mt-1">0</div>
-      </div>
-    </div>
+    <!-- Warm Off-White Document Workspace (max-width 1400px, 32px padding) -->
+    <main class="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-6 space-y-6">
 
-    <!-- Live Event Feed Banner -->
-    <div id="event-feed-container" class="mb-6 hidden">
-      <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span id="latest-event-text">Monitoring live network events...</span>
+      <!-- Module Header -->
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div>
+          <div class="label-operational text-primary-strong">Real-Time Asset Telemetry</div>
+          <h1 class="text-2xl font-bold text-on-canvas tracking-tight mt-0.5">Network Topology & Endpoint Inventory</h1>
         </div>
-        <span id="latest-event-time" class="text-slate-400 font-mono"></span>
-      </div>
-    </div>
-
-    <!-- Device Inventory Table -->
-    <div class="rounded-xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-        <h2 class="text-base font-semibold text-white">Discovered Devices</h2>
-        <span class="text-xs text-slate-400" id="last-updated">Auto-refreshed</span>
+        <div class="text-xs text-on-surface-muted font-medium" id="last-updated">Synchronizing telemetry...</div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="bg-slate-900 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
-            <tr>
-              <th class="px-6 py-3">Status</th>
-              <th class="px-6 py-3">Device / Hostname</th>
-              <th class="px-6 py-3">IP Address</th>
-              <th class="px-6 py-3">MAC / Vendor</th>
-              <th class="px-6 py-3">Open Ports & Services</th>
-              <th class="px-6 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="devices-table-body" class="divide-y divide-slate-800/60 font-normal">
-            <tr>
-              <td colspan="6" class="px-6 py-12 text-center text-slate-500">
-                Loading network devices...
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Live Telemetry Signal Banner -->
+      <div id="event-feed-container" class="hidden">
+        <div class="px-4 py-3 rounded-[12px] bg-surface-elevated border border-primary/30 shadow-subtle flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3 text-sm text-on-surface">
+            <span class="relative flex h-2.5 w-2.5 shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+            </span>
+            <span id="latest-event-text" class="font-medium">Monitoring live network events...</span>
+          </div>
+          <span id="latest-event-time" class="text-xs text-on-surface-muted font-mono shrink-0"></span>
+        </div>
       </div>
-    </div>
 
-    <!-- Recent Event History Log -->
-    <div class="mt-8">
-      <h3 class="text-sm font-semibold text-slate-300 mb-3">Presence Audit Timeline</h3>
-      <div id="logs-container" class="rounded-xl border border-slate-800 bg-slate-900/30 p-4 max-h-60 overflow-y-auto font-mono text-xs text-slate-400 space-y-2">
-        <div class="text-slate-600">No events logged yet.</div>
-      </div>
-    </div>
+      <!-- 4-Column Metric Cards Grid (16px gap, 24px internal padding, 12px radius) -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-surface-elevated border border-outline rounded-[12px] p-6 shadow-subtle flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="label-operational text-on-surface-muted">Total Inventory</span>
+            <span class="w-2 h-2 rounded-full bg-primary/60"></span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div id="stat-total" class="text-3xl font-bold text-on-surface tracking-tight">0</div>
+            <span class="text-xs text-on-surface-muted">fingerprints</span>
+          </div>
+          <div class="mt-3 w-full h-1.5 bg-surface rounded-[4px] overflow-hidden">
+            <div class="h-full bg-primary/60 w-full rounded-[4px]"></div>
+          </div>
+        </div>
 
+        <div class="bg-surface-elevated border border-outline rounded-[12px] p-6 shadow-subtle flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="label-operational text-on-surface-muted">Active Online</span>
+            <span class="badge-production px-2 py-0.5 rounded-full text-[11px] font-semibold">LIVE</span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div id="stat-online" class="text-3xl font-bold text-on-surface tracking-tight">0</div>
+            <span class="text-xs text-on-surface-muted">reachable hosts</span>
+          </div>
+          <div class="mt-3 w-full h-1.5 bg-surface rounded-[4px] overflow-hidden">
+            <div id="bar-online" class="h-full bg-primary/60 rounded-[4px] transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bg-surface-elevated border border-outline rounded-[12px] p-6 shadow-subtle flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="label-operational text-on-surface-muted">Offline / Dormant</span>
+            <span class="badge-planned px-2 py-0.5 rounded-full text-[11px] font-semibold">IDLE</span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div id="stat-offline" class="text-3xl font-bold text-on-surface-muted tracking-tight">0</div>
+            <span class="text-xs text-on-surface-muted">historical</span>
+          </div>
+          <div class="mt-3 w-full h-1.5 bg-surface rounded-[4px] overflow-hidden">
+            <div id="bar-offline" class="h-full bg-outline-strong rounded-[4px] transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bg-surface-elevated border border-outline rounded-[12px] p-6 shadow-subtle flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="label-operational text-on-surface-muted">Exposed Services</span>
+            <span class="badge-development px-2 py-0.5 rounded-full text-[11px] font-semibold">TCP/UDP</span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div id="stat-services" class="text-3xl font-bold text-on-surface tracking-tight">0</div>
+            <span class="text-xs text-on-surface-muted">open ports</span>
+          </div>
+          <div class="mt-3 w-full h-1.5 bg-surface rounded-[4px] overflow-hidden">
+            <div class="h-full bg-primary/60 w-2/3 rounded-[4px]"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Endpoint Inventory Table Card -->
+      <section class="bg-surface-elevated border border-outline rounded-[12px] shadow-subtle overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-bold text-on-surface">Discovered Endpoints</h2>
+            <span id="filter-pill" class="badge-mock px-2.5 py-0.5 rounded-full label-operational hidden">Filtered</span>
+          </div>
+          <div class="text-xs text-on-surface-muted">
+            Click <span class="font-semibold text-on-surface">Port Scan</span> on any row to inspect exposed TCP services
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="table-header-row border-b border-outline">
+                <th class="px-4">Status</th>
+                <th class="px-4">Endpoint / Identity</th>
+                <th class="px-4">IPv4 Address</th>
+                <th class="px-4">MAC / Hardware Vendor</th>
+                <th class="px-4">Exposed Services (Ports)</th>
+                <th class="px-4 text-right">Inspection</th>
+              </tr>
+            </thead>
+            <tbody id="devices-table-body" class="divide-y divide-outline text-sm">
+              <tr>
+                <td colspan="6" class="px-6 py-12 text-center text-on-surface-muted">
+                  Loading network endpoints...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Presence Audit Timeline Card -->
+      <section id="timeline-section" class="bg-surface-elevated border border-outline rounded-[12px] p-6 shadow-subtle">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="label-operational text-primary-strong">State Transitions</div>
+            <h3 class="text-lg font-bold text-on-surface">Presence Audit Timeline</h3>
+          </div>
+          <span class="badge-planned px-2.5 py-1 rounded-full label-operational">Hysteresis Protected</span>
+        </div>
+        <div id="logs-container" class="rounded-[8px] border border-outline bg-canvas p-4 max-h-64 overflow-y-auto font-mono text-xs space-y-2">
+          <div class="text-on-surface-muted">No transition events recorded yet.</div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
   <script>
     let devicesData = [];
+    let currentFilter = 'ALL';
+
+    function setFilter(mode) {
+      currentFilter = mode;
+      ['all', 'online', 'ports'].forEach(id => {
+        const el = document.getElementById('nav-' + id);
+        if (el) el.classList.remove('nav-item-active');
+      });
+      const activeId = mode === 'ALL' ? 'nav-all' : mode === 'ONLINE' ? 'nav-online' : 'nav-ports';
+      const activeEl = document.getElementById(activeId);
+      if (activeEl) activeEl.classList.add('nav-item-active');
+
+      const pill = document.getElementById('filter-pill');
+      if (mode === 'ALL') {
+        pill.classList.add('hidden');
+      } else {
+        pill.classList.remove('hidden');
+        pill.innerText = mode === 'ONLINE' ? 'Active Online Only' : 'Exposed Services Only';
+      }
+      renderDevices();
+    }
 
     async function fetchDevices() {
       try {
@@ -159,15 +449,16 @@
         const container = document.getElementById('logs-container');
         if (!logs.length) return;
         container.innerHTML = logs.map(l => {
-          let badgeColor = 'text-emerald-400';
-          if (l.event_type === 'LEFT') badgeColor = 'text-rose-400';
-          if (l.event_type === 'IP_CHANGED') badgeColor = 'text-amber-400';
-          return `<div class="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0">
-            <div>
-              <span class="${badgeColor} font-bold mr-2">[${l.event_type}]</span>
-              <span class="text-slate-300">${l.details}</span>
+          let badgeClass = 'badge-production';
+          if (l.event_type === 'LEFT') badgeClass = 'badge-planned';
+          if (l.event_type === 'IP_CHANGED') badgeClass = 'badge-mock';
+          if (l.event_type === 'SERVICES_UPDATED') badgeClass = 'badge-development';
+          return `<div class="flex items-center justify-between py-1.5 border-b border-outline last:border-0 gap-4">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="${badgeClass} px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase shrink-0">${l.event_type}</span>
+              <span class="text-on-surface truncate">${l.details}</span>
             </div>
-            <span class="text-slate-500 text-[10px]">${new Date(l.timestamp_utc).toLocaleTimeString()}</span>
+            <span class="text-on-surface-muted text-[11px] shrink-0">${new Date(l.timestamp_utc).toLocaleTimeString()}</span>
           </div>`;
         }).join('');
       } catch (err) {
@@ -188,58 +479,74 @@
       document.getElementById('stat-online').innerText = online;
       document.getElementById('stat-offline').innerText = offline;
       document.getElementById('stat-services').innerText = servicesCount;
-      document.getElementById('last-updated').innerText = 'Last updated ' + new Date().toLocaleTimeString();
+
+      const onlinePct = total > 0 ? Math.round((online / total) * 100) : 0;
+      const offlinePct = total > 0 ? Math.round((offline / total) * 100) : 0;
+      document.getElementById('bar-online').style.width = `${onlinePct}%`;
+      document.getElementById('bar-offline').style.width = `${offlinePct}%`;
+
+      document.getElementById('last-updated').innerText = 'Last synced ' + new Date().toLocaleTimeString();
     }
 
     function renderDevices() {
       const tbody = document.getElementById('devices-table-body');
-      if (!devicesData.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">No devices found. Click "Scan Subnet Now" to start discovery.</td></tr>`;
+      const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+
+      const filtered = devicesData.filter(dev => {
+        if (currentFilter === 'ONLINE' && dev.reachability !== 'ONLINE') return false;
+        if (currentFilter === 'PORTS' && (!dev.services || dev.services.length === 0)) return false;
+        if (!query) return true;
+        const hay = `${dev.hostname || ''} ${dev.ip_address || ''} ${dev.mac_address || ''} ${dev.vendor || ''}`.toLowerCase();
+        return hay.includes(query);
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-on-surface-muted">No matching endpoints found.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = devicesData.map(dev => {
+      tbody.innerHTML = filtered.map(dev => {
         const isOnline = dev.reachability === 'ONLINE';
-        const statusDot = isOnline 
-          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Online</span>`
-          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">Offline</span>`;
+        const statusBadge = isOnline 
+          ? `<span class="badge-production inline-flex items-center px-2.5 py-1 rounded-full label-operational"><span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-[#00c758]"></span>Online</span>`
+          : `<span class="badge-planned inline-flex items-center px-2.5 py-1 rounded-full label-operational">Offline</span>`;
 
-        const name = dev.hostname || 'Unknown Device';
-        const vendor = dev.vendor || (dev.is_randomized_mac ? 'Private MAC' : 'Unknown Vendor');
+        const name = dev.hostname || 'Unresolved Host';
+        const vendor = dev.vendor || (dev.is_randomized_mac ? 'Private Hardware Address' : 'Unidentified OUI');
         const macBadge = dev.is_randomized_mac 
-          ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/40 ml-1">Randomized</span>` 
+          ? `<span class="badge-integrated text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ml-1.5">Randomized</span>` 
           : '';
 
-        const latency = dev.latency_ms ? `<span class="text-slate-500 text-xs ml-1">(${dev.latency_ms}ms)</span>` : '';
+        const latency = dev.latency_ms ? `<span class="text-on-surface-muted text-xs ml-1.5 font-mono">(${dev.latency_ms}ms)</span>` : '';
 
         // Ports badges
-        let servicesHtml = '<span class="text-slate-600 text-xs italic">Not scanned yet</span>';
+        let servicesHtml = '<span class="text-on-surface-muted text-xs italic">Not scanned yet</span>';
         if (dev.services && dev.services.length > 0) {
-          servicesHtml = `<div class="flex flex-wrap gap-1">` + dev.services.map(s => {
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40" title="${s.service_version || s.service_name || ''}">:${s.port} ${s.service_name || ''}</span>`;
+          servicesHtml = `<div class="flex flex-wrap gap-1.5">` + dev.services.map(s => {
+            return `<span class="badge-development inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold" title="${s.service_version || s.service_name || ''}">:${s.port} ${s.service_name || ''}</span>`;
           }).join('') + `</div>`;
         } else if (dev.last_port_scan_utc) {
-          servicesHtml = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800/80 text-slate-300 border border-slate-700/60 text-xs" title="Last scanned: ${dev.last_port_scan_utc} UTC"><svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>0 open ports found</span>`;
+          servicesHtml = `<span class="badge-planned inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium" title="Last scanned: ${dev.last_port_scan_utc} UTC"><svg class="w-3.5 h-3.5 text-[#00c758]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>0 open ports found</span>`;
         }
 
         return `
-          <tr class="hover:bg-slate-800/30 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap">${statusDot}</td>
-            <td class="px-6 py-4">
-              <div class="font-medium text-white">${name}</div>
-              <div class="text-xs text-slate-500 font-mono">${dev.fingerprint_id.substring(0, 12)}...</div>
+          <tr class="hover:bg-surface/70 transition-colors">
+            <td class="px-4 py-3 whitespace-nowrap">${statusBadge}</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-on-surface">${name}</div>
+              <div class="text-xs text-on-surface-muted font-mono">ID: ${dev.fingerprint_id.substring(0, 12)}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span class="font-mono text-emerald-400 font-medium">${dev.ip_address}</span>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="font-mono text-sm font-semibold text-on-surface">${dev.ip_address}</span>
               ${latency}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-xs font-mono text-slate-300">${dev.mac_address || 'N/A'}${macBadge}</div>
-              <div class="text-xs text-slate-400">${vendor}</div>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div class="text-xs font-mono text-on-surface">${dev.mac_address || 'Local Host'}${macBadge}</div>
+              <div class="text-xs text-on-surface-muted">${vendor}</div>
             </td>
-            <td class="px-6 py-4">${servicesHtml}</td>
-            <td class="px-6 py-4 text-right whitespace-nowrap">
-              <button id="port-btn-${dev.ip_address.replaceAll('.', '-')}" onclick="triggerDeviceScan('${dev.ip_address}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700 transition-all inline-flex items-center gap-1.5 disabled:opacity-50">
+            <td class="px-4 py-3">${servicesHtml}</td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <button id="port-btn-${dev.ip_address.replaceAll('.', '-')}" onclick="triggerDeviceScan('${dev.ip_address}')" class="px-3 py-1.5 rounded-[6px] bg-surface hover:bg-primary hover:text-white text-on-surface text-xs font-semibold border border-outline hover:border-primary transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
                 <span>Port Scan</span>
               </button>
             </td>
@@ -251,10 +558,12 @@
     async function triggerSubnetScan() {
       const btn = document.getElementById('scan-btn');
       const spinner = document.getElementById('scan-spinner');
+      const icon = document.getElementById('scan-icon');
       const text = document.getElementById('scan-text');
 
       btn.disabled = true;
       spinner.classList.remove('hidden');
+      icon.classList.add('hidden');
       text.innerText = 'Scanning Subnet...';
 
       try {
@@ -266,6 +575,7 @@
       } finally {
         btn.disabled = false;
         spinner.classList.add('hidden');
+        icon.classList.remove('hidden');
         text.innerText = 'Scan Subnet Now';
       }
     }
@@ -275,14 +585,14 @@
       const btn = document.getElementById(`port-btn-${cleanId}`);
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Scanning...</span>`;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin text-primary" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Scanning...</span>`;
       }
 
       const feedContainer = document.getElementById('event-feed-container');
       const feedText = document.getElementById('latest-event-text');
       const feedTime = document.getElementById('latest-event-time');
       feedContainer.classList.remove('hidden');
-      feedText.innerText = `Scanning ports on ${ip}... (takes ~3s)`;
+      feedText.innerText = `Scanning top 50 TCP ports on ${ip}... (~3s)`;
       feedTime.innerText = new Date().toLocaleTimeString();
 
       try {
@@ -293,7 +603,7 @@
         });
         const data = await res.json();
         const count = data.services ? data.services.length : 0;
-        feedText.innerText = `Port scan completed for ${ip}: ${count} open port(s) detected.`;
+        feedText.innerText = `Port scan completed for ${ip}: ${count} open service(s) detected.`;
         await fetchDevices();
         await fetchLogs();
       } catch (err) {
@@ -306,7 +616,6 @@
       }
     }
 
-    // Connect to Server-Sent Events (SSE) for live push updates
     function initEventStream() {
       const evtSource = new EventSource('/api/events');
       const feedContainer = document.getElementById('event-feed-container');
@@ -319,23 +628,17 @@
           if (payload.heartbeat) return;
 
           feedContainer.classList.remove('hidden');
-          feedText.innerText = `[${payload.event_type || 'UPDATE'}] ${payload.details || 'Device updated'}`;
+          feedText.innerText = `[${payload.event_type || 'UPDATE'}] ${payload.details || 'Endpoint state updated'}`;
           feedTime.innerText = new Date().toLocaleTimeString();
 
-          // Refresh device table and logs
           fetchDevices();
           fetchLogs();
         } catch (e) {
           console.error('Error handling SSE payload:', e);
         }
       };
-
-      evtSource.onerror = () => {
-        // Retry connection automatically
-      };
     }
 
-    // Boot
     window.addEventListener('DOMContentLoaded', () => {
       fetchSubnetInfo();
       fetchDevices();
