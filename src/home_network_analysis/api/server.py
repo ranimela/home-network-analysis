@@ -162,6 +162,13 @@ def create_app(
                     )
                 await conn.commit()
 
+            await coordinator.broadcast(
+                {
+                    "event_type": "SERVICES_UPDATED",
+                    "details": f"Port scan completed for {clean_ip}: found {len(services)} services",
+                }
+            )
+
             return {
                 "ip": clean_ip,
                 "services": [s.model_dump() for s in services],

@@ -317,20 +317,20 @@ class NmapScanner:
             List of detected ServiceProfiles.
         """
         target = validate_network_target(ip_address)
+        clean_target = target.split("/")[0]
 
         with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
             xml_path = Path(tmp.name)
 
         cmd = [
             str(self.nmap_bin),
-            "-sT",  # Connect scan (works in unprivileged mode on Windows without raw sockets)
-            "-sV",  # Service version detection
+            "-sT",  # Connect scan
+            "-T4",  # Aggressive timing for rapid feedback
             "--top-ports",
             str(top_ports),
-            "-T4",
             "-oX",
             str(xml_path),
-            target,
+            clean_target,
         ]
 
         async with self._lock:

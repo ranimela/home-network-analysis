@@ -237,8 +237,8 @@
             </td>
             <td class="px-6 py-4">${servicesHtml}</td>
             <td class="px-6 py-4 text-right whitespace-nowrap">
-              <button onclick="triggerDeviceScan('${dev.ip_address}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700 transition-all">
-                Port Scan
+              <button id="port-btn-${dev.ip_address.replaceAll('.', '-')}" onclick="triggerDeviceScan('${dev.ip_address}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700 transition-all inline-flex items-center gap-1.5 disabled:opacity-50">
+                <span>Port Scan</span>
               </button>
             </td>
           </tr>
@@ -269,17 +269,38 @@
     }
 
     async function triggerDeviceScan(ip) {
+      const cleanId = ip.replaceAll('.', '-');
+      const btn = document.getElementById(`port-btn-${cleanId}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> <span>Scanning...</span>`;
+      }
+
+      const feedContainer = document.getElementById('event-feed-container');
+      const feedText = document.getElementById('latest-event-text');
+      const feedTime = document.getElementById('latest-event-time');
+      feedContainer.classList.remove('hidden');
+      feedText.innerText = `Scanning ports on ${ip}... (takes ~3s)`;
+      feedTime.innerText = new Date().toLocaleTimeString();
+
       try {
         const res = await fetch('/api/scan/device', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ip_address: ip })
+          body: JSON.stringify({ ip_address: ip, top_ports: 50 })
         });
         const data = await res.json();
-        alert(`Deep port scan initiated for ${ip}. Discovered ${data.services.length} open services.`);
+        const count = data.services ? data.services.length : 0;
+        feedText.innerText = `Port scan completed for ${ip}: ${count} open port(s) detected.`;
         await fetchDevices();
+        await fetchLogs();
       } catch (err) {
-        alert('Port scan failed: ' + err);
+        feedText.innerText = `Port scan failed for ${ip}: ${err}`;
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span>Port Scan</span>`;
+        }
       }
     }
 
