@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Network Analysis & Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Top Header -->
+    <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Home Network Monitor</h1>
+            <p class="text-xs text-slate-400">Subnet: <span id="subnet-badge" class="font-mono text-emerald-400">Probing...</span> • Engine: <span class="text-slate-300">Nmap + SQLite WAL</span></p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <button id="scan-btn" onclick="triggerSubnetScan()" class="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-lg shadow-emerald-950/50 active:scale-95 disabled:opacity-50">
+          <svg id="scan-spinner" class="w-4 h-4 hidden animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span id="scan-text">Scan Subnet Now</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Metrics Bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Discovered</div>
+        <div id="stat-total" class="text-2xl font-bold text-white mt-1">0</div>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Active Online</div>
+        <div id="stat-online" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Offline / Past</div>
+        <div id="stat-offline" class="text-2xl font-bold text-slate-400 mt-1">0</div>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div class="text-xs font-medium text-blue-400 uppercase tracking-wider">Open Services</div>
+        <div id="stat-services" class="text-2xl font-bold text-blue-400 mt-1">0</div>
+      </div>
+    </div>
+
+    <!-- Live Event Feed Banner -->
+    <div id="event-feed-container" class="mb-6 hidden">
+      <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-300 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span id="latest-event-text">Monitoring live network events...</span>
+        </div>
+        <span id="latest-event-time" class="text-slate-400 font-mono"></span>
+      </div>
+    </div>
+
+    <!-- Device Inventory Table -->
+    <div class="rounded-xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h2 class="text-base font-semibold text-white">Discovered Devices</h2>
+        <span class="text-xs text-slate-400" id="last-updated">Auto-refreshed</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3">Device / Hostname</th>
+              <th class="px-6 py-3">IP Address</th>
+              <th class="px-6 py-3">MAC / Vendor</th>
+              <th class="px-6 py-3">Open Ports & Services</th>
+              <th class="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="devices-table-body" class="divide-y divide-slate-800/60 font-normal">
+            <tr>
+              <td colspan="6" class="px-6 py-12 text-center text-slate-500">
+                Loading network devices...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Event History Log -->
+    <div class="mt-8">
+      <h3 class="text-sm font-semibold text-slate-300 mb-3">Presence Audit Timeline</h3>
+      <div id="logs-container" class="rounded-xl border border-slate-800 bg-slate-900/30 p-4 max-h-60 overflow-y-auto font-mono text-xs text-slate-400 space-y-2">
+        <div class="text-slate-600">No events logged yet.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let devicesData = [];
+
+    async function fetchDevices() {
+      try {
+        const res = await fetch('/api/devices');
+        if (!res.ok) throw new Error('API fetch failed');
+        devicesData = await res.json();
+        renderDevices();
+        updateStats();
+      } catch (err) {
+        console.error('Failed to load devices:', err);
+      }
+    }
+
+    async function fetchSubnetInfo() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('subnet-badge').innerText = data.subnet;
+      } catch (err) {
+        document.getElementById('subnet-badge').innerText = 'Local LAN';
+      }
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs?limit=25');
+        const logs = await res.json();
+        const container = document.getElementById('logs-container');
+        if (!logs.length) return;
+        container.innerHTML = logs.map(l => {
+          let badgeColor = 'text-emerald-400';
+          if (l.event_type === 'LEFT') badgeColor = 'text-rose-400';
+          if (l.event_type === 'IP_CHANGED') badgeColor = 'text-amber-400';
+          return `<div class="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0">
+            <div>
+              <span class="${badgeColor} font-bold mr-2">[${l.event_type}]</span>
+              <span class="text-slate-300">${l.details}</span>
+            </div>
+            <span class="text-slate-500 text-[10px]">${new Date(l.timestamp_utc).toLocaleTimeString()}</span>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load logs:', err);
+      }
+    }
+
+    function updateStats() {
+      const total = devicesData.length;
+      const online = devicesData.filter(d => d.reachability === 'ONLINE').length;
+      const offline = total - online;
+      let servicesCount = 0;
+      devicesData.forEach(d => {
+        if (d.services && d.services.length) servicesCount += d.services.length;
+      });
+
+      document.getElementById('stat-total').innerText = total;
+      document.getElementById('stat-online').innerText = online;
+      document.getElementById('stat-offline').innerText = offline;
+      document.getElementById('stat-services').innerText = servicesCount;
+      document.getElementById('last-updated').innerText = 'Last updated ' + new Date().toLocaleTimeString();
+    }
+
+    function renderDevices() {
+      const tbody = document.getElementById('devices-table-body');
+      if (!devicesData.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">No devices found. Click "Scan Subnet Now" to start discovery.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = devicesData.map(dev => {
+        const isOnline = dev.reachability === 'ONLINE';
+        const statusDot = isOnline 
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Online</span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">Offline</span>`;
+
+        const name = dev.hostname || 'Unknown Device';
+        const vendor = dev.vendor || (dev.is_randomized_mac ? 'Private MAC' : 'Unknown Vendor');
+        const macBadge = dev.is_randomized_mac 
+          ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/40 ml-1">Randomized</span>` 
+          : '';
+
+        const latency = dev.latency_ms ? `<span class="text-slate-500 text-xs ml-1">(${dev.latency_ms}ms)</span>` : '';
+
+        // Ports badges
+        let servicesHtml = '<span class="text-slate-600 text-xs">No ports scanned</span>';
+        if (dev.services && dev.services.length > 0) {
+          servicesHtml = `<div class="flex flex-wrap gap-1">` + dev.services.map(s => {
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40" title="${s.service_version || s.service_name || ''}">:${s.port} ${s.service_name || ''}</span>`;
+          }).join('') + `</div>`;
+        }
+
+        return `
+          <tr class="hover:bg-slate-800/30 transition-colors">
+            <td class="px-6 py-4 whitespace-nowrap">${statusDot}</td>
+            <td class="px-6 py-4">
+              <div class="font-medium text-white">${name}</div>
+              <div class="text-xs text-slate-500 font-mono">${dev.fingerprint_id.substring(0, 12)}...</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="font-mono text-emerald-400 font-medium">${dev.ip_address}</span>
+              ${latency}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-xs font-mono text-slate-300">${dev.mac_address || 'N/A'}${macBadge}</div>
+              <div class="text-xs text-slate-400">${vendor}</div>
+            </td>
+            <td class="px-6 py-4">${servicesHtml}</td>
+            <td class="px-6 py-4 text-right whitespace-nowrap">
+              <button onclick="triggerDeviceScan('${dev.ip_address}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs border border-slate-700 transition-all">
+                Port Scan
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function triggerSubnetScan() {
+      const btn = document.getElementById('scan-btn');
+      const spinner = document.getElementById('scan-spinner');
+      const text = document.getElementById('scan-text');
+
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      text.innerText = 'Scanning Subnet...';
+
+      try {
+        await fetch('/api/scan', { method: 'POST' });
+        await fetchDevices();
+        await fetchLogs();
+      } catch (err) {
+        console.error('Scan failed:', err);
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+        text.innerText = 'Scan Subnet Now';
+      }
+    }
+
+    async function triggerDeviceScan(ip) {
+      try {
+        const res = await fetch('/api/scan/device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ip_address: ip })
+        });
+        const data = await res.json();
+        alert(`Deep port scan initiated for ${ip}. Discovered ${data.services.length} open services.`);
+        await fetchDevices();
+      } catch (err) {
+        alert('Port scan failed: ' + err);
+      }
+    }
+
+    // Connect to Server-Sent Events (SSE) for live push updates
+    function initEventStream() {
+      const evtSource = new EventSource('/api/events');
+      const feedContainer = document.getElementById('event-feed-container');
+      const feedText = document.getElementById('latest-event-text');
+      const feedTime = document.getElementById('latest-event-time');
+
+      evtSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.heartbeat) return;
+
+          feedContainer.classList.remove('hidden');
+          feedText.innerText = `[${payload.event_type || 'UPDATE'}] ${payload.details || 'Device updated'}`;
+          feedTime.innerText = new Date().toLocaleTimeString();
+
+          // Refresh device table and logs
+          fetchDevices();
+          fetchLogs();
+        } catch (e) {
+          console.error('Error handling SSE payload:', e);
+        }
+      };
+
+      evtSource.onerror = () => {
+        // Retry connection automatically
+      };
+    }
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchSubnetInfo();
+      fetchDevices();
+      fetchLogs();
+      initEventStream();
+    });
+  </script>
+</body>
+</html>

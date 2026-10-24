@@ -1,0 +1,40 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+
+# SQLite databases & WAL logs
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Temporary scan artifacts
+temp_scans/
+*.xml
+
+# Node / Frontend artifacts
+node_modules/
+dist/
+build/
+
+# Operating system artifacts
+.DS_Store
+Thumbs.db
