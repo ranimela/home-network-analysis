@@ -247,7 +247,7 @@ class NetworkRepository:
             cursor = await conn.execute(
                 """
                 SELECT fingerprint_id, ip_address, mac_address, is_randomized_mac,
-                       hostname, vendor, reachability, latency_ms, consecutive_misses,
+                       custom_name, hostname, vendor, reachability, latency_ms, consecutive_misses,
                        last_port_scan_utc, first_seen_utc, last_seen_utc
                 FROM devices
                 ORDER BY
@@ -294,3 +294,31 @@ class NetworkRepository:
             )
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
+
+    async def update_device_name(self, fingerprint_id: str, custom_name: str | None) -> bool:
+        """Assign or clear a user-defined friendly alias for a device.
+
+        Args:
+            fingerprint_id: Unique device fingerprint identifier.
+            custom_name: Friendly alias string, or None/empty to revert to hostname.
+
+        Returns:
+            True if device was found and updated, False otherwise.
+        """
+        cleaned_name = custom_name.strip() if custom_name else None
+        now_str = datetime.now(timezone.utc).isoformat()
+        async with self.db.connect() as conn:
+            cursor = await conn.execute(
+                "UPDATE devices SET custom_name = ? WHERE fingerprint_id = ?",
+                (cleaned_name, fingerprint_id),
+            )
+            if cursor.rowcount == 0:
+                return False
+
+            label = cleaned_name or "default network hostname"
+            await conn.execute(
+                "INSERT INTO presence_logs (fingerprint_id, event_type, details, timestamp_utc) VALUES (?, ?, ?, ?)",
+                (fingerprint_id, "RENAMED", f"Endpoint alias set to '{label}'", now_str),
+            )
+            await conn.commit()
+            return True

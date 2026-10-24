@@ -161,3 +161,36 @@ async def test_ip_change_audit_event(temp_repo: NetworkRepository) -> None:
     devices = await temp_repo.get_all_devices()
     assert len(devices) == 1
     assert devices[0]["ip_address"] == "192.168.1.25"
+
+
+async def test_device_custom_name_persists_across_sweeps(temp_repo: NetworkRepository) -> None:
+    """Verify user-assigned custom_name is preserved across future discovery sweeps."""
+    fid = generate_fingerprint_id("11:22:33:44:55:66", "192.168.1.77")
+    ep = DiscoveredEndpoint(
+        fingerprint_id=fid,
+        observed_ip=IPv4Address("192.168.1.77"),
+        observed_mac="11:22:33:44:55:66",
+        hostname="ESP_323834.lan",
+    )
+    await temp_repo.record_snapshot(
+        NetworkScanSnapshot(
+            collector_source=CollectorSource.ARP_SWEEP,
+            network_scope="192.168.1.0/24",
+            endpoints=[ep],
+        )
+    )
+
+    updated = await temp_repo.update_device_name(fid, "Living Room Smart Plug")
+    assert updated is True
+
+    # Run another sweep and verify custom_name is untouched
+    await temp_repo.record_snapshot(
+        NetworkScanSnapshot(
+            collector_source=CollectorSource.ARP_SWEEP,
+            network_scope="192.168.1.0/24",
+            endpoints=[ep],
+        )
+    )
+    devices = await temp_repo.get_all_devices()
+    assert devices[0]["custom_name"] == "Living Room Smart Plug"
+    assert devices[0]["hostname"] == "ESP_323834.lan"

@@ -39,6 +39,12 @@ class SubnetScanRequest(BaseModel):
     subnet: str | None = None
 
 
+class DeviceRenameRequest(BaseModel):
+    """Payload for assigning a custom friendly name to a device."""
+
+    custom_name: str | None = None
+
+
 def create_app(
     db_path: Path | str = "data/network.db",
     auto_start_scanner: bool = True,
@@ -105,6 +111,23 @@ def create_app(
     async def get_devices() -> list[dict[str, Any]]:
         """Return all discovered devices and associated ports."""
         return await repository.get_all_devices()
+
+    @app.patch("/api/devices/{fingerprint_id}")
+    async def rename_device(fingerprint_id: str, body: DeviceRenameRequest) -> dict[str, Any]:
+        """Update the user-defined friendly alias for a specific device."""
+        updated = await repository.update_device_name(fingerprint_id, body.custom_name)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        clean_label = body.custom_name.strip() if body.custom_name else "default network hostname"
+        await coordinator.broadcast(
+            {
+                "fingerprint_id": fingerprint_id,
+                "event_type": "RENAMED",
+                "details": f"Endpoint alias updated to '{clean_label}'",
+            }
+        )
+        return {"fingerprint_id": fingerprint_id, "custom_name": body.custom_name}
 
     @app.get("/api/logs")
     async def get_logs(limit: int = 50) -> list[dict[str, Any]]:

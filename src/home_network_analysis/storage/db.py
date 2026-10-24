@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS devices (
     ip_address TEXT NOT NULL,
     mac_address TEXT,
     is_randomized_mac INTEGER NOT NULL DEFAULT 0,
+    custom_name TEXT,
     hostname TEXT,
     vendor TEXT,
     reachability TEXT NOT NULL DEFAULT 'ONLINE',
@@ -83,11 +84,13 @@ class DatabaseManager:
             await db.execute("PRAGMA busy_timeout = 5000;")
             await db.execute("PRAGMA foreign_keys = ON;")
             await db.executescript(SCHEMA_SQL)
-            # Ensure last_port_scan_utc exists on pre-existing databases
+            # Ensure new columns exist on pre-existing databases
             cursor = await db.execute("PRAGMA table_info(devices);")
             cols = [row["name"] for row in await cursor.fetchall()]
             if "last_port_scan_utc" not in cols:
                 await db.execute("ALTER TABLE devices ADD COLUMN last_port_scan_utc TEXT;")
+            if "custom_name" not in cols:
+                await db.execute("ALTER TABLE devices ADD COLUMN custom_name TEXT;")
             await db.commit()
 
     @asynccontextmanager

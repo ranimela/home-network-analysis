@@ -453,6 +453,7 @@
           if (l.event_type === 'LEFT') badgeClass = 'badge-planned';
           if (l.event_type === 'IP_CHANGED') badgeClass = 'badge-mock';
           if (l.event_type === 'SERVICES_UPDATED') badgeClass = 'badge-development';
+          if (l.event_type === 'RENAMED') badgeClass = 'badge-integrated';
           return `<div class="flex items-center justify-between py-1.5 border-b border-outline last:border-0 gap-4">
             <div class="flex items-center gap-2.5 min-w-0">
               <span class="${badgeClass} px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase shrink-0">${l.event_type}</span>
@@ -496,7 +497,7 @@
         if (currentFilter === 'ONLINE' && dev.reachability !== 'ONLINE') return false;
         if (currentFilter === 'PORTS' && (!dev.services || dev.services.length === 0)) return false;
         if (!query) return true;
-        const hay = `${dev.hostname || ''} ${dev.ip_address || ''} ${dev.mac_address || ''} ${dev.vendor || ''}`.toLowerCase();
+        const hay = `${dev.custom_name || ''} ${dev.hostname || ''} ${dev.ip_address || ''} ${dev.mac_address || ''} ${dev.vendor || ''}`.toLowerCase();
         return hay.includes(query);
       });
 
@@ -511,7 +512,11 @@
           ? `<span class="badge-production inline-flex items-center px-2.5 py-1 rounded-full label-operational"><span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-[#00c758]"></span>Online</span>`
           : `<span class="badge-planned inline-flex items-center px-2.5 py-1 rounded-full label-operational">Offline</span>`;
 
-        const name = dev.hostname || 'Unresolved Host';
+        const displayName = dev.custom_name || dev.hostname || 'Unresolved Host';
+        const subIdentity = dev.custom_name && dev.hostname
+          ? `Host: ${dev.hostname} • ID: ${dev.fingerprint_id.substring(0, 8)}`
+          : `ID: ${dev.fingerprint_id.substring(0, 12)}`;
+        const safeCurrentName = (dev.custom_name || dev.hostname || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const vendor = dev.vendor || (dev.is_randomized_mac ? 'Private Hardware Address' : 'Unidentified OUI');
         const macBadge = dev.is_randomized_mac 
           ? `<span class="badge-integrated text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ml-1.5">Randomized</span>` 
@@ -530,11 +535,29 @@
         }
 
         return `
-          <tr class="hover:bg-surface/70 transition-colors">
+          <tr class="hover:bg-surface/70 transition-colors group">
             <td class="px-4 py-3 whitespace-nowrap">${statusBadge}</td>
             <td class="px-4 py-3">
-              <div class="font-bold text-on-surface">${name}</div>
-              <div class="text-xs text-on-surface-muted font-mono">ID: ${dev.fingerprint_id.substring(0, 12)}</div>
+              <div id="name-view-${dev.fingerprint_id}" class="flex items-center gap-2">
+                <span class="font-bold text-on-surface">${displayName}</span>
+                <button onclick="openRenameInput('${dev.fingerprint_id}', '${safeCurrentName}')" title="Rename device" class="text-on-surface-muted hover:text-primary p-1 rounded hover:bg-surface transition-colors cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+              <div id="name-edit-${dev.fingerprint_id}" class="hidden items-center gap-1.5 mb-1">
+                <input
+                  id="name-input-${dev.fingerprint_id}"
+                  type="text"
+                  placeholder="Enter custom name..."
+                  onkeydown="if(event.key==='Enter') saveDeviceName('${dev.fingerprint_id}'); if(event.key==='Escape') cancelRename('${dev.fingerprint_id}');"
+                  class="px-2.5 py-1 text-xs rounded-[6px] border border-outline-strong bg-white text-on-surface focus:outline-none focus:border-primary-focus focus:ring-2 focus:ring-primary-focus/20 w-44"
+                />
+                <button onclick="saveDeviceName('${dev.fingerprint_id}')" class="px-2.5 py-1 rounded-[6px] bg-primary hover:bg-primary-strong text-white text-xs font-semibold cursor-pointer">Save</button>
+                <button onclick="cancelRename('${dev.fingerprint_id}')" class="px-2 py-1 rounded-[6px] bg-surface hover:bg-outline text-on-surface-muted text-xs font-medium cursor-pointer">Cancel</button>
+              </div>
+              <div class="text-xs text-on-surface-muted font-mono">${subIdentity}</div>
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <span class="font-mono text-sm font-semibold text-on-surface">${dev.ip_address}</span>
@@ -553,6 +576,49 @@
           </tr>
         `;
       }).join('');
+    }
+
+    function openRenameInput(fid, currentName) {
+      const viewEl = document.getElementById(`name-view-${fid}`);
+      const editEl = document.getElementById(`name-edit-${fid}`);
+      const inputEl = document.getElementById(`name-input-${fid}`);
+      if (viewEl && editEl && inputEl) {
+        viewEl.classList.add('hidden');
+        editEl.classList.remove('hidden');
+        editEl.classList.add('flex');
+        inputEl.value = currentName || '';
+        inputEl.focus();
+        inputEl.select();
+      }
+    }
+
+    function cancelRename(fid) {
+      const viewEl = document.getElementById(`name-view-${fid}`);
+      const editEl = document.getElementById(`name-edit-${fid}`);
+      if (viewEl && editEl) {
+        editEl.classList.add('hidden');
+        editEl.classList.remove('flex');
+        viewEl.classList.remove('hidden');
+      }
+    }
+
+    async function saveDeviceName(fid) {
+      const inputEl = document.getElementById(`name-input-${fid}`);
+      if (!inputEl) return;
+      const newName = inputEl.value.trim();
+
+      try {
+        const res = await fetch(`/api/devices/${fid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custom_name: newName || null })
+        });
+        if (!res.ok) throw new Error('Rename failed');
+        await fetchDevices();
+        await fetchLogs();
+      } catch (err) {
+        console.error('Error renaming device:', err);
+      }
     }
 
     async function triggerSubnetScan() {
