@@ -96,38 +96,40 @@ class ScanCoordinator:
         try:
             logger.info("Executing lazy port scan for new device %s at %s", fingerprint_id, ip_str)
             services = await self.scanner.run_targeted_port_scan(ip_str, top_ports=30)
-            if services:
-                # Update device services in repository
-                async with self.repository.db.connect() as conn:
-                    for s in services:
-                        await conn.execute(
-                            """
-                            INSERT INTO device_services (
-                                fingerprint_id, port, protocol, service_name, service_version, state, last_checked_utc
-                            ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-                            ON CONFLICT(fingerprint_id, port, protocol) DO UPDATE SET
-                                service_name = excluded.service_name,
-                                service_version = excluded.service_version,
-                                state = excluded.state,
-                                last_checked_utc = excluded.last_checked_utc
-                            """,
-                            (
-                                fingerprint_id,
-                                s.port,
-                                s.protocol.value,
-                                s.service_name,
-                                s.service_version,
-                                s.state.value,
-                            ),
-                        )
-                    await conn.commit()
-                await self.broadcast(
-                    {
-                        "fingerprint_id": fingerprint_id,
-                        "event_type": "SERVICES_UPDATED",
-                        "details": f"Discovered {len(services)} open ports on {ip_str}",
-                    }
+            async with self.repository.db.connect() as conn:
+                await conn.execute(
+                    "UPDATE devices SET last_port_scan_utc = datetime('now') WHERE fingerprint_id = ?",
+                    (fingerprint_id,),
                 )
+                for s in services:
+                    await conn.execute(
+                        """
+                        INSERT INTO device_services (
+                            fingerprint_id, port, protocol, service_name, service_version, state, last_checked_utc
+                        ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+                        ON CONFLICT(fingerprint_id, port, protocol) DO UPDATE SET
+                            service_name = excluded.service_name,
+                            service_version = excluded.service_version,
+                            state = excluded.state,
+                            last_checked_utc = excluded.last_checked_utc
+                        """,
+                        (
+                            fingerprint_id,
+                            s.port,
+                            s.protocol.value,
+                            s.service_name,
+                            s.service_version,
+                            s.state.value,
+                        ),
+                    )
+                await conn.commit()
+            await self.broadcast(
+                {
+                    "fingerprint_id": fingerprint_id,
+                    "event_type": "SERVICES_UPDATED",
+                    "details": f"Discovered {len(services)} open ports on {ip_str}",
+                }
+            )
         except (OSError, RuntimeError, ValueError) as err:
             logger.error("Lazy port scan failed for %s: %s", ip_str, err)
 

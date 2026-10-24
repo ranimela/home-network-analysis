@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS devices (
     reachability TEXT NOT NULL DEFAULT 'ONLINE',
     latency_ms REAL,
     consecutive_misses INTEGER NOT NULL DEFAULT 0,
+    last_port_scan_utc TEXT,
     first_seen_utc TEXT NOT NULL,
     last_seen_utc TEXT NOT NULL
 );
@@ -82,6 +83,11 @@ class DatabaseManager:
             await db.execute("PRAGMA busy_timeout = 5000;")
             await db.execute("PRAGMA foreign_keys = ON;")
             await db.executescript(SCHEMA_SQL)
+            # Ensure last_port_scan_utc exists on pre-existing databases
+            cursor = await db.execute("PRAGMA table_info(devices);")
+            cols = [row["name"] for row in await cursor.fetchall()]
+            if "last_port_scan_utc" not in cols:
+                await db.execute("ALTER TABLE devices ADD COLUMN last_port_scan_utc TEXT;")
             await db.commit()
 
     @asynccontextmanager

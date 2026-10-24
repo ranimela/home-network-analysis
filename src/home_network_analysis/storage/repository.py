@@ -248,7 +248,7 @@ class NetworkRepository:
                 """
                 SELECT fingerprint_id, ip_address, mac_address, is_randomized_mac,
                        hostname, vendor, reachability, latency_ms, consecutive_misses,
-                       first_seen_utc, last_seen_utc
+                       last_port_scan_utc, first_seen_utc, last_seen_utc
                 FROM devices
                 ORDER BY
                     CASE reachability WHEN 'ONLINE' THEN 1 ELSE 2 END,

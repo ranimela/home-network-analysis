@@ -213,11 +213,13 @@
         const latency = dev.latency_ms ? `<span class="text-slate-500 text-xs ml-1">(${dev.latency_ms}ms)</span>` : '';
 
         // Ports badges
-        let servicesHtml = '<span class="text-slate-600 text-xs">No ports scanned</span>';
+        let servicesHtml = '<span class="text-slate-600 text-xs italic">Not scanned yet</span>';
         if (dev.services && dev.services.length > 0) {
           servicesHtml = `<div class="flex flex-wrap gap-1">` + dev.services.map(s => {
             return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40" title="${s.service_version || s.service_name || ''}">:${s.port} ${s.service_name || ''}</span>`;
           }).join('') + `</div>`;
+        } else if (dev.last_port_scan_utc) {
+          servicesHtml = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-800/80 text-slate-300 border border-slate-700/60 text-xs" title="Last scanned: ${dev.last_port_scan_utc} UTC"><svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>0 open ports found</span>`;
         }
 
         return `

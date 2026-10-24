@@ -138,6 +138,10 @@ def create_app(
             # Persist to repository (replace with fresh open ports)
             async with db_manager.connect() as conn:
                 await conn.execute(
+                    "UPDATE devices SET last_port_scan_utc = datetime('now') WHERE ip_address = ?",
+                    (clean_ip,),
+                )
+                await conn.execute(
                     """
                     DELETE FROM device_services
                     WHERE fingerprint_id IN (SELECT fingerprint_id FROM devices WHERE ip_address = ?)
