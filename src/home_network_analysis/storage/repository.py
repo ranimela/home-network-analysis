@@ -4,6 +4,7 @@ Incorporates hysteresis debouncing to prevent flapping and tracks historical
 presence transitions.
 """
 
+from datetime import datetime, timezone
 from typing import Any
 
 from home_network_analysis.core.contracts import (
