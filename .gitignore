@@ -26,8 +26,9 @@ venv/
 ENV/
 env/
 
-# Temporary scan artifacts
+# Temporary scan & QA artifacts
 temp_scans/
+.qa/
 *.xml
 
 # Node / Frontend artifacts

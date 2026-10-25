@@ -6,6 +6,7 @@ to isolated temporary files to prevent pipe deadlocks, and parses structured XML
 
 import asyncio
 import logging
+import os
 import shutil
 import socket
 import tempfile
@@ -29,8 +30,8 @@ from home_network_analysis.core.contracts import (
 logger = logging.getLogger(__name__)
 
 STANDARD_NMAP_PATHS: Final[list[Path]] = [
-    Path("C:/Program Files (x86)/Nmap/nmap.exe"),
-    Path("C:/Program Files/Nmap/nmap.exe"),
+    Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)")) / "Nmap" / "nmap.exe",
+    Path(os.environ.get("PROGRAMFILES", "C:/Program Files")) / "Nmap" / "nmap.exe",
 ]
 
 
