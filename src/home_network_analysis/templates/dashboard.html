@@ -400,6 +400,16 @@
     let devicesData = [];
     let currentFilter = 'ALL';
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function setFilter(mode) {
       currentFilter = mode;
       ['all', 'online', 'ports'].forEach(id => {
@@ -456,8 +466,8 @@
           if (l.event_type === 'RENAMED') badgeClass = 'badge-integrated';
           return `<div class="flex items-center justify-between py-1.5 border-b border-outline last:border-0 gap-4">
             <div class="flex items-center gap-2.5 min-w-0">
-              <span class="${badgeClass} px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase shrink-0">${l.event_type}</span>
-              <span class="text-on-surface truncate">${l.details}</span>
+              <span class="${badgeClass} px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase shrink-0">${escapeHtml(l.event_type)}</span>
+              <span class="text-on-surface truncate">${escapeHtml(l.details)}</span>
             </div>
             <span class="text-on-surface-muted text-[11px] shrink-0">${new Date(l.timestamp_utc).toLocaleTimeString()}</span>
           </div>`;
@@ -512,26 +522,26 @@
           ? `<span class="badge-production inline-flex items-center px-2.5 py-1 rounded-full label-operational"><span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-[#00c758]"></span>Online</span>`
           : `<span class="badge-planned inline-flex items-center px-2.5 py-1 rounded-full label-operational">Offline</span>`;
 
-        const displayName = dev.custom_name || dev.hostname || 'Unresolved Host';
+        const displayName = escapeHtml(dev.custom_name || dev.hostname || 'Unresolved Host');
         const subIdentity = dev.custom_name && dev.hostname
-          ? `Host: ${dev.hostname} • ID: ${dev.fingerprint_id.substring(0, 8)}`
-          : `ID: ${dev.fingerprint_id.substring(0, 12)}`;
-        const safeCurrentName = (dev.custom_name || dev.hostname || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const vendor = dev.vendor || (dev.is_randomized_mac ? 'Private Hardware Address' : 'Unidentified OUI');
+          ? `Host: ${escapeHtml(dev.hostname)} • ID: ${escapeHtml(dev.fingerprint_id.substring(0, 8))}`
+          : `ID: ${escapeHtml(dev.fingerprint_id.substring(0, 12))}`;
+        const safeCurrentName = escapeHtml(dev.custom_name || dev.hostname || '').replace(/&#39;/g, "\\'");
+        const vendor = escapeHtml(dev.vendor || (dev.is_randomized_mac ? 'Private Hardware Address' : 'Unidentified OUI'));
         const macBadge = dev.is_randomized_mac 
           ? `<span class="badge-integrated text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ml-1.5">Randomized</span>` 
           : '';
 
-        const latency = dev.latency_ms ? `<span class="text-on-surface-muted text-xs ml-1.5 font-mono">(${dev.latency_ms}ms)</span>` : '';
+        const latency = dev.latency_ms ? `<span class="text-on-surface-muted text-xs ml-1.5 font-mono">(${escapeHtml(dev.latency_ms)}ms)</span>` : '';
 
         // Ports badges
         let servicesHtml = '<span class="text-on-surface-muted text-xs italic">Not scanned yet</span>';
         if (dev.services && dev.services.length > 0) {
           servicesHtml = `<div class="flex flex-wrap gap-1.5">` + dev.services.map(s => {
-            return `<span class="badge-development inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold" title="${s.service_version || s.service_name || ''}">:${s.port} ${s.service_name || ''}</span>`;
+            return `<span class="badge-development inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold" title="${escapeHtml(s.service_version || s.service_name || '')}">:${escapeHtml(s.port)} ${escapeHtml(s.service_name || '')}</span>`;
           }).join('') + `</div>`;
         } else if (dev.last_port_scan_utc) {
-          servicesHtml = `<span class="badge-planned inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium" title="Last scanned: ${dev.last_port_scan_utc} UTC"><svg class="w-3.5 h-3.5 text-[#00c758]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>0 open ports found</span>`;
+          servicesHtml = `<span class="badge-planned inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium" title="Last scanned: ${escapeHtml(dev.last_port_scan_utc)} UTC"><svg class="w-3.5 h-3.5 text-[#00c758]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>0 open ports found</span>`;
         }
 
         return `

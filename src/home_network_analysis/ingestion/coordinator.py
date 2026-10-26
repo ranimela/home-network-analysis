@@ -131,7 +131,7 @@ class ScanCoordinator:
                 }
             )
         except (OSError, RuntimeError, ValueError) as err:
-            logger.error("Lazy port scan failed for %s: %s", ip_str, err)
+            logger.error("Lazy port scan failed for %s: %s", ip_str, err, exc_info=True)
 
     async def _sweep_loop(self) -> None:
         """Internal background polling loop."""
@@ -145,7 +145,9 @@ class ScanCoordinator:
             try:
                 await self.execute_manual_sweep(subnet)
             except (OSError, RuntimeError, ValueError) as err:
-                logger.error("Background sweep iteration encountered error: %s", err)
+                logger.error(
+                    "Background sweep iteration encountered error: %s", err, exc_info=True
+                )
 
             try:
                 await asyncio.sleep(self.sweep_interval)

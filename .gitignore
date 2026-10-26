@@ -5,12 +5,15 @@
 secrets.json
 credentials.json
 
-# SQLite databases & WAL logs
+# SQLite databases, WAL logs, and runtime logs
+data/
 *.db
 *.db-wal
 *.db-shm
 *.sqlite
 *.sqlite3
+*.log
+*.log.*
 
 # Python bytecode and caches
 __pycache__/

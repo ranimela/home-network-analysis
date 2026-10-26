@@ -96,9 +96,13 @@ def validate_network_target(target: str) -> str:
 
     try:
         net = ip_network(cleaned, strict=False)
-        return str(net)
     except ValueError as exc:
         raise ValueError(f"Invalid IP network target: {cleaned}") from exc
+
+    if not (net.is_private or net.is_loopback):
+        raise ValueError(f"Target must be a private LAN or loopback address: {cleaned}")
+
+    return str(net)
 
 
 def parse_nmap_xml(xml_content: str) -> list[DiscoveredEndpoint]:
@@ -298,8 +302,8 @@ class NmapScanner:
                 if xml_path.exists():
                     try:
                         xml_path.unlink()
-                    except OSError:
-                        pass
+                    except OSError as cleanup_err:
+                        logger.debug("Could not unlink temp XML %s: %s", xml_path, cleanup_err)
 
     async def run_targeted_port_scan(
         self,
@@ -365,5 +369,5 @@ class NmapScanner:
                 if xml_path.exists():
                     try:
                         xml_path.unlink()
-                    except OSError:
-                        pass
+                    except OSError as cleanup_err:
+                        logger.debug("Could not unlink temp XML %s: %s", xml_path, cleanup_err)

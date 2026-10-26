@@ -68,6 +68,9 @@ def test_validate_network_target_rejects_injections() -> None:
     with pytest.raises(ValueError, match="Invalid IP network target"):
         validate_network_target("not.an.ip.address")
 
+    with pytest.raises(ValueError, match="Target must be a private LAN or loopback address"):
+        validate_network_target("8.8.8.8")
+
 
 def test_parse_nmap_xml_extraction() -> None:
     """Verify XML parsing maps correctly to domain contracts."""

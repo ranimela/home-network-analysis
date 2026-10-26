@@ -3,16 +3,30 @@
 import argparse
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import uvicorn
 
 from home_network_analysis.api.server import create_app
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+
+def configure_logging(log_file: Path = Path("data/network.log")) -> None:
+    """Configure console and rotating file logging with timestamps and tracebacks."""
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers = [stream_handler, file_handler]
 
 
 def main() -> None:
@@ -29,6 +43,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    configure_logging(Path(args.db).parent / "network.log")
 
     app = create_app(
         db_path=args.db,

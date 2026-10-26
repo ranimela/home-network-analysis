@@ -24,15 +24,15 @@ description: Use after each Builder micro-task and before shipping. Runs static 
 5. Record the tool versions used (interpreter, linter, test runner) in the report so results are reproducible.
 
 ## Operational Flow
-0. **Preflight:** confirm the toolchain exists (interpreter, linter, test runner; plus Docker in `docker` mode) and the project builds or imports. Confirm you are on a `feature/` or `bugfix/` branch and note the git status. If the folder is not a git repo, add a WARNING (no rollback available). If something required is missing, return FAIL with `env_missing` and the exact reason. Do not improvise.
-1. **Static analysis:** linters and formatters. Fail on raw diagnostic prints (`console.log`, `print`, `fmt.Println`) outside deliberate user-facing CLI output.
+0. **Preflight:** confirm the toolchain exists (interpreter, linter, test runner; plus Docker in `docker` mode) and the project builds or imports. Confirm you are on a `feature/` or `bugfix/` branch and note the git status. In the quick lane, check the mini-spec's `## Verify` statements in place of PRD acceptance criteria. If the folder is not a git repo, add a WARNING (no rollback available). If something required is missing, return FAIL with `env_missing` and the exact reason. Do not improvise.
+1. **Static analysis:** linters and formatters. Report raw diagnostic prints (`console.log`, `print`, `fmt.Println`) outside deliberate user-facing output as a WARNING, not a FAIL. Also WARN on silently swallowed exceptions (bare `except: pass` and similar).
 2. **Security scan:** secret scan (e.g. gitleaks) and dependency audit (e.g. npm audit, pip-audit). Any secret found is an automatic FAIL. If a scanner is not installed, report `scanner_missing` as a WARNING with the install command. It becomes a blocking FAIL at the Release Wrangler stage, not per micro-task.
 3. **Contract audit:** verify the changes did not violate the immutable data contracts in `/.plans/` or leak data.
 4. **Path audit (only in `docker` mode, or if the Planner states the code also targets another OS):** catch Windows-vs-Linux mismatches (absolute vs relative paths, line endings, case sensitivity). In host mode, still flag hardcoded absolute paths.
 5. **Tests:** run local unit and integration suites.
-6. **Acceptance check:** verify against `/.plans/prd.md` acceptance criteria FIRST, then the plan's verification criteria. Report each AC ID as pass/fail with evidence.
+6. **Acceptance check:** full lane: verify against `/.plans/prd.md` acceptance criteria FIRST, then the plan's verification criteria. Quick lane: verify the mini-spec's `## Verify` statements. Report each AC ID as pass/fail with evidence.
 7. **Browser traces:** for frontend or scraping changes, use the Browser Subagent. Save screenshots to `/.qa/traces/` and reference them in the report.
 
 ## Output Format
-- **FAIL:** any lint failure, secret, failing test, schema deviation, failed AC, unhandled promise rejection, or `env_missing`. Output a zero-fluff markdown report (mode used, tool versions, exact stack traces, line numbers, DOM failures) to `/.qa/report.md` and set `validator_token.result: "FAIL"`. Halt the pipeline.
-- **PASS:** zero errors across all phases. Set `validator_token` to `{ "result": "PASS", "task": <current_task>, "timestamp": <ISO time>, "mode": "<host|docker>" }` and `state: validated` when all tasks are done.
+- **FAIL:** any lint failure, secret, failing test, schema deviation, failed AC, unhandled promise rejection, or `env_missing`. Output a zero-fluff markdown report (mode used, tool versions, exact stack traces, line numbers, DOM failures) to `/.qa/report.md` and set `validator_token.result: "FAIL"`. Stop and tell the user to run `/build` so the Builder fixes exactly what the report lists (attempt number shown, cap is 3).
+- **PASS:** zero errors across all phases. Set `validator_token` to `{ "result": "PASS", "task": <current_task>, "timestamp": <ISO time>, "mode": "<host|docker>" }` and set `state: validated` when `current_task == tasks_total`. Otherwise tell the user to run `/build` for the next task.
