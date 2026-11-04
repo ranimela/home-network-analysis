@@ -28,7 +28,7 @@ build-backend = "hatchling.build"
 packages = ["src/home_network_analysis"]
 
 [tool.vercel]
-entrypoint = "src/home_network_analysis/api/server.py"
+entrypoint = "home_network_analysis.api.server:app"
 
 [tool.ruff]
 line-length = 100
