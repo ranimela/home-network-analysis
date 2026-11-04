@@ -27,6 +27,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/home_network_analysis"]
 
+[tool.vercel]
+entrypoint = "app:app"
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

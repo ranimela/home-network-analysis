@@ -7,6 +7,6 @@ _SRC_DIR = str(Path(__file__).resolve().parent)
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
-from home_network_analysis.api.server import app  # noqa: E402
+from home_network_analysis.api.server import app
 
 __all__ = ["app"]
