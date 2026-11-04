@@ -41,15 +41,12 @@ def main() -> None:
     parser.add_argument(
         "--interval", type=int, default=60, help="Interval in seconds between sweeps (default: 60)"
     )
+    parser.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload when source files change"
+    )
 
     args = parser.parse_args()
     configure_logging(Path(args.db).parent / "network.log")
-
-    app = create_app(
-        db_path=args.db,
-        auto_start_scanner=not args.no_auto_scan,
-        sweep_interval_seconds=args.interval,
-    )
 
     print("\n" + "=" * 60)
     print("  Home Network Analysis & Monitor")
@@ -57,7 +54,23 @@ def main() -> None:
     print(f"  Database storage: {args.db}")
     print("=" * 60 + "\n")
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    if args.reload:
+        uvicorn.run(
+            "home_network_analysis.api.server:create_app",
+            factory=True,
+            host=args.host,
+            port=args.port,
+            reload=True,
+            reload_dirs=[str(Path(__file__).resolve().parent)],
+            log_level="info",
+        )
+    else:
+        app = create_app(
+            db_path=args.db,
+            auto_start_scanner=not args.no_auto_scan,
+            sweep_interval_seconds=args.interval,
+        )
+        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 
 if __name__ == "__main__":

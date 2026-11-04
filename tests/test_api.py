@@ -56,9 +56,23 @@ async def test_scan_device_rejects_injection(app_instance) -> None:
         app_instance.router.lifespan_context(app_instance),
         AsyncClient(transport=ASGITransport(app=app_instance), base_url="http://test") as client,
     ):
-            res = await client.post(
-                "/api/scan/device",
-                json={"ip_address": "192.168.1.1; rm -rf /"},
-            )
-            assert res.status_code == 400
-            assert "Malformed or unsafe characters" in res.json()["detail"]
+        res = await client.post(
+            "/api/scan/device",
+            json={"ip_address": "192.168.1.1; rm -rf /"},
+        )
+        assert res.status_code == 400
+        assert "Malformed or unsafe characters" in res.json()["detail"]
+
+
+async def test_clear_network_history_endpoint(app_instance) -> None:
+    """Verify DELETE /api/network/history clears devices for the specified scope."""
+    async with (
+        app_instance.router.lifespan_context(app_instance),
+        AsyncClient(transport=ASGITransport(app=app_instance), base_url="http://test") as client,
+    ):
+        res = await client.delete("/api/network/history?scope=192.168.99.0/24")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["network_scope"] == "192.168.99.0/24"
+        assert data["devices_deleted"] == 0
+

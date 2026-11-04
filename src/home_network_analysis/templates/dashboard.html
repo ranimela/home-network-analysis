@@ -245,14 +245,28 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <button id="clear-btn" onclick="clearNetworkHistory()" title="Clear stored devices and history for this network" class="h-10 px-3.5 rounded-[6px] bg-white/10 hover:bg-danger/85 text-white/90 hover:text-white border border-white/15 hover:border-danger text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span class="hidden md:inline">Clear History</span>
+        </button>
+
+        <button id="refresh-btn" onclick="refreshDashboard()" title="Refresh active network view from database" class="h-10 px-3.5 rounded-[6px] bg-white/10 hover:bg-white/20 text-white border border-white/15 text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer">
+          <svg id="refresh-icon" class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span id="refresh-text" class="hidden sm:inline">Refresh</span>
+        </button>
+
         <button id="scan-btn" onclick="triggerSubnetScan()" class="btn-primary flex items-center justify-center gap-2 shadow-subtle active:scale-[0.99] disabled:opacity-50 cursor-pointer">
           <svg id="scan-spinner" class="w-4 h-4 hidden animate-spin text-white" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
           <svg id="scan-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
           </svg>
           <span id="scan-text">Scan Subnet Now</span>
         </button>
@@ -457,7 +471,10 @@
         const res = await fetch('/api/logs?limit=25');
         const logs = await res.json();
         const container = document.getElementById('logs-container');
-        if (!logs.length) return;
+        if (!logs.length) {
+          container.innerHTML = `<div class="text-on-surface-muted">No transition events recorded for this network yet.</div>`;
+          return;
+        }
         container.innerHTML = logs.map(l => {
           let badgeClass = 'badge-production';
           if (l.event_type === 'LEFT') badgeClass = 'badge-planned';
@@ -631,6 +648,55 @@
       }
     }
 
+    async function clearNetworkHistory() {
+      const currentScope = document.getElementById('subnet-badge')?.innerText || 'the current network';
+      if (!confirm(`Remove all offline / historical devices from ${currentScope}?\n\nCurrently online devices and other saved networks will be kept.`)) {
+        return;
+      }
+
+      const btn = document.getElementById('clear-btn');
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/network/history?only_offline=true', { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to clear network history');
+        const data = await res.json();
+
+        const feedContainer = document.getElementById('event-feed-container');
+        const feedText = document.getElementById('latest-event-text');
+        const feedTime = document.getElementById('latest-event-time');
+        feedContainer.classList.remove('hidden');
+        feedText.innerText = `Cleared ${data.devices_deleted} offline historical endpoint(s) from ${data.network_scope}.`;
+        feedTime.innerText = new Date().toLocaleTimeString();
+
+        await refreshDashboard();
+      } catch (err) {
+        console.error('Error clearing network history:', err);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function refreshDashboard() {
+      const btn = document.getElementById('refresh-btn');
+      const icon = document.getElementById('refresh-icon');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+
+      try {
+        await Promise.all([
+          fetchSubnetInfo(),
+          fetchDevices(),
+          fetchLogs()
+        ]);
+      } catch (err) {
+        console.error('Refresh failed:', err);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
     async function triggerSubnetScan() {
       const btn = document.getElementById('scan-btn');
       const spinner = document.getElementById('scan-spinner');
@@ -644,8 +710,11 @@
 
       try {
         await fetch('/api/scan', { method: 'POST' });
-        await fetchDevices();
-        await fetchLogs();
+        await Promise.all([
+          fetchSubnetInfo(),
+          fetchDevices(),
+          fetchLogs()
+        ]);
       } catch (err) {
         console.error('Scan failed:', err);
       } finally {

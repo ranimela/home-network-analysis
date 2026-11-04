@@ -23,6 +23,6 @@ echo [*] Starting Home Network Monitor on http://localhost:8000 ...
 echo [*] Press Ctrl+C in this terminal to stop the monitor.
 echo.
 
-".venv\Scripts\python.exe" -m home_network_analysis.main --port 8000
+".venv\Scripts\python.exe" -m home_network_analysis.main --port 8000 --reload
 
 pause

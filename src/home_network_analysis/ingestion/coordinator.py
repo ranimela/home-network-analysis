@@ -135,14 +135,13 @@ class ScanCoordinator:
 
     async def _sweep_loop(self) -> None:
         """Internal background polling loop."""
-        subnet = detect_local_subnet()
         logger.info(
-            "Starting background sweep loop on subnet %s (interval: %ss)",
-            subnet,
+            "Starting background sweep loop (interval: %ss)",
             self.sweep_interval,
         )
         while self._running:
             try:
+                subnet = detect_local_subnet()
                 await self.execute_manual_sweep(subnet)
             except (OSError, RuntimeError, ValueError):
                 logger.exception("Background sweep iteration encountered error")

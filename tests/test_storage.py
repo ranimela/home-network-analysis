@@ -194,3 +194,70 @@ async def test_device_custom_name_persists_across_sweeps(temp_repo: NetworkRepos
     devices = await temp_repo.get_all_devices()
     assert devices[0]["custom_name"] == "Living Room Smart Plug"
     assert devices[0]["hostname"] == "ESP_323834.lan"
+
+
+async def test_network_scope_isolation_and_persistence(temp_repo: NetworkRepository) -> None:
+    """Verify devices from past networks remain stored in DB but are filtered by active scope."""
+    home_fid = generate_fingerprint_id("AA:11:22:33:44:55", "192.168.1.10")
+    office_fid = generate_fingerprint_id("BB:11:22:33:44:55", "10.0.0.25")
+
+    home_ep = DiscoveredEndpoint(
+        fingerprint_id=home_fid,
+        observed_ip=IPv4Address("192.168.1.10"),
+        observed_mac="AA:11:22:33:44:55",
+        hostname="home-nas.lan",
+    )
+    office_ep = DiscoveredEndpoint(
+        fingerprint_id=office_fid,
+        observed_ip=IPv4Address("10.0.0.25"),
+        observed_mac="BB:11:22:33:44:55",
+        hostname="office-printer.local",
+    )
+
+    # 1. Connect to Home network (192.168.1.0/24)
+    await temp_repo.record_snapshot(
+        NetworkScanSnapshot(
+            collector_source=CollectorSource.ARP_SWEEP,
+            network_scope="192.168.1.0/24",
+            endpoints=[home_ep],
+        )
+    )
+
+    # 2. Switch to Office network (10.0.0.0/24) and run 4 sweeps
+    # Home devices must NOT be marked offline while scanning the Office network
+    for _ in range(4):
+        await temp_repo.record_snapshot(
+            NetworkScanSnapshot(
+                collector_source=CollectorSource.ARP_SWEEP,
+                network_scope="10.0.0.0/24",
+                endpoints=[office_ep],
+            )
+        )
+
+    # Querying active Office scope returns only Office device
+    office_devices = await temp_repo.get_all_devices(network_scope="10.0.0.0/24")
+    assert len(office_devices) == 1
+    assert office_devices[0]["fingerprint_id"] == office_fid
+    assert office_devices[0]["hostname"] == "office-printer.local"
+
+    # Querying Home scope returns only Home device (still preserved and ONLINE in DB)
+    home_devices = await temp_repo.get_all_devices(network_scope="192.168.1.0/24")
+    assert len(home_devices) == 1
+    assert home_devices[0]["fingerprint_id"] == home_fid
+    assert home_devices[0]["reachability"] == "ONLINE"
+    assert home_devices[0]["consecutive_misses"] == 0
+
+    # Presence logs are also scoped per network
+    office_logs = await temp_repo.get_presence_logs(network_scope="10.0.0.0/24")
+    assert all(log["fingerprint_id"] == office_fid for log in office_logs)
+    home_logs = await temp_repo.get_presence_logs(network_scope="192.168.1.0/24")
+    assert all(log["fingerprint_id"] == home_fid for log in home_logs)
+
+    # 3. Clear history for Office network only; verify Home network remains intact
+    deleted = await temp_repo.clear_network_history("10.0.0.0/24")
+    assert deleted == 1
+    assert await temp_repo.get_all_devices(network_scope="10.0.0.0/24") == []
+    assert await temp_repo.get_presence_logs(network_scope="10.0.0.0/24") == []
+    assert len(await temp_repo.get_all_devices(network_scope="192.168.1.0/24")) == 1
+
+

@@ -77,13 +77,14 @@ class NetworkRepository:
                         await cursor.execute(
                             """
                             INSERT INTO devices (
-                                fingerprint_id, ip_address, mac_address, is_randomized_mac,
+                                fingerprint_id, network_scope, ip_address, mac_address, is_randomized_mac,
                                 hostname, vendor, reachability, latency_ms, consecutive_misses,
                                 first_seen_utc, last_seen_utc
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
                             """,
                             (
                                 ep.fingerprint_id,
+                                snapshot.network_scope,
                                 str(ep.observed_ip),
                                 ep.observed_mac,
                                 1 if ep.is_randomized_mac else 0,
@@ -158,7 +159,8 @@ class NetworkRepository:
                         await cursor.execute(
                             """
                             UPDATE devices
-                            SET ip_address = ?,
+                            SET network_scope = ?,
+                                ip_address = ?,
                                 hostname = ?,
                                 vendor = ?,
                                 reachability = 'ONLINE',
@@ -168,6 +170,7 @@ class NetworkRepository:
                             WHERE fingerprint_id = ?
                             """,
                             (
+                                snapshot.network_scope,
                                 str(ep.observed_ip),
                                 merged_host,
                                 merged_vendor,
@@ -202,9 +205,10 @@ class NetworkRepository:
                                 ),
                             )
 
-                # 3. Apply hysteresis to unobserved devices that were previously ONLINE
+                # 3. Apply hysteresis to unobserved devices that were previously ONLINE in the same network scope
                 await cursor.execute(
-                    "SELECT fingerprint_id, ip_address, hostname, consecutive_misses FROM devices WHERE reachability = 'ONLINE'"
+                    "SELECT fingerprint_id, ip_address, hostname, consecutive_misses FROM devices WHERE reachability = 'ONLINE' AND network_scope = ?",
+                    (snapshot.network_scope,),
                 )
                 active_rows = await cursor.fetchall()
                 for active_row in active_rows:
@@ -238,24 +242,43 @@ class NetworkRepository:
 
         return events_generated
 
-    async def get_all_devices(self) -> list[dict[str, Any]]:
-        """Retrieve all registered devices with their currently open services.
+    async def get_all_devices(self, network_scope: str | None = None) -> list[dict[str, Any]]:
+        """Retrieve registered devices with their currently open services.
+
+        Args:
+            network_scope: Optional CIDR scope filter (e.g. '192.168.1.0/24') to return
+                only devices belonging to a specific network.
 
         Returns:
             List of device records with associated service dictionaries.
         """
         async with self.db.connect() as conn:
-            cursor = await conn.execute(
-                """
-                SELECT fingerprint_id, ip_address, mac_address, is_randomized_mac,
-                       custom_name, hostname, vendor, reachability, latency_ms, consecutive_misses,
-                       last_port_scan_utc, first_seen_utc, last_seen_utc
-                FROM devices
-                ORDER BY
-                    CASE reachability WHEN 'ONLINE' THEN 1 ELSE 2 END,
-                    last_seen_utc DESC
-                """
-            )
+            if network_scope:
+                cursor = await conn.execute(
+                    """
+                    SELECT fingerprint_id, network_scope, ip_address, mac_address, is_randomized_mac,
+                           custom_name, hostname, vendor, reachability, latency_ms, consecutive_misses,
+                           last_port_scan_utc, first_seen_utc, last_seen_utc
+                    FROM devices
+                    WHERE network_scope = ?
+                    ORDER BY
+                        CASE reachability WHEN 'ONLINE' THEN 1 ELSE 2 END,
+                        last_seen_utc DESC
+                    """,
+                    (network_scope,),
+                )
+            else:
+                cursor = await conn.execute(
+                    """
+                    SELECT fingerprint_id, network_scope, ip_address, mac_address, is_randomized_mac,
+                           custom_name, hostname, vendor, reachability, latency_ms, consecutive_misses,
+                           last_port_scan_utc, first_seen_utc, last_seen_utc
+                    FROM devices
+                    ORDER BY
+                        CASE reachability WHEN 'ONLINE' THEN 1 ELSE 2 END,
+                        last_seen_utc DESC
+                    """
+                )
             device_rows = await cursor.fetchall()
 
             devices: list[dict[str, Any]] = []
@@ -272,27 +295,46 @@ class NetworkRepository:
 
             return devices
 
-    async def get_presence_logs(self, limit: int = 50) -> list[dict[str, Any]]:
+    async def get_presence_logs(
+        self,
+        limit: int = 50,
+        network_scope: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Retrieve the most recent presence transition audit logs.
 
         Args:
             limit: Maximum records to return.
+            network_scope: Optional CIDR scope filter to return only logs for the active network.
 
         Returns:
             List of presence log entries.
         """
         async with self.db.connect() as conn:
-            cursor = await conn.execute(
-                """
-                SELECT p.id, p.fingerprint_id, p.event_type, p.details, p.timestamp_utc,
-                       d.hostname, d.ip_address
-                FROM presence_logs p
-                LEFT JOIN devices d ON p.fingerprint_id = d.fingerprint_id
-                ORDER BY p.id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+            if network_scope:
+                cursor = await conn.execute(
+                    """
+                    SELECT p.id, p.fingerprint_id, p.event_type, p.details, p.timestamp_utc,
+                           d.hostname, d.ip_address, d.network_scope
+                    FROM presence_logs p
+                    INNER JOIN devices d ON p.fingerprint_id = d.fingerprint_id
+                    WHERE d.network_scope = ?
+                    ORDER BY p.id DESC
+                    LIMIT ?
+                    """,
+                    (network_scope, limit),
+                )
+            else:
+                cursor = await conn.execute(
+                    """
+                    SELECT p.id, p.fingerprint_id, p.event_type, p.details, p.timestamp_utc,
+                           d.hostname, d.ip_address, d.network_scope
+                    FROM presence_logs p
+                    LEFT JOIN devices d ON p.fingerprint_id = d.fingerprint_id
+                    ORDER BY p.id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
@@ -323,3 +365,37 @@ class NetworkRepository:
             )
             await conn.commit()
             return True
+
+    async def clear_network_history(
+        self,
+        network_scope: str,
+        only_offline: bool = False,
+    ) -> int:
+        """Delete stored devices, services, and logs for a network scope.
+
+        Args:
+            network_scope: CIDR network scope (e.g. '192.168.1.0/24') to purge.
+            only_offline: If True, only delete OFFLINE historical devices while preserving
+                currently ONLINE devices.
+
+        Returns:
+            Number of device records removed.
+        """
+        async with self.db.connect() as conn:
+            if only_offline:
+                cursor = await conn.execute(
+                    "DELETE FROM devices WHERE network_scope = ? AND reachability != 'ONLINE'",
+                    (network_scope,),
+                )
+            else:
+                cursor = await conn.execute(
+                    "DELETE FROM devices WHERE network_scope = ?",
+                    (network_scope,),
+                )
+                await conn.execute(
+                    "DELETE FROM scan_history WHERE network_scope = ?",
+                    (network_scope,),
+                )
+            deleted_devices = cursor.rowcount
+            await conn.commit()
+            return deleted_devices

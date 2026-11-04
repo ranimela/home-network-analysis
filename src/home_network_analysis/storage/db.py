@@ -6,6 +6,7 @@ and idempotent DDL migrations.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from ipaddress import ip_network
 from pathlib import Path
 
 import aiosqlite
@@ -13,6 +14,7 @@ import aiosqlite
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS devices (
     fingerprint_id TEXT PRIMARY KEY,
+    network_scope TEXT,
     ip_address TEXT NOT NULL,
     mac_address TEXT,
     is_randomized_mac INTEGER NOT NULL DEFAULT 0,
@@ -91,6 +93,22 @@ class DatabaseManager:
                 await db.execute("ALTER TABLE devices ADD COLUMN last_port_scan_utc TEXT;")
             if "custom_name" not in cols:
                 await db.execute("ALTER TABLE devices ADD COLUMN custom_name TEXT;")
+            if "network_scope" not in cols:
+                await db.execute("ALTER TABLE devices ADD COLUMN network_scope TEXT;")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_devices_scope ON devices(network_scope);")
+            # Backfill any existing devices missing network_scope from their IPv4 address
+            null_cursor = await db.execute(
+                "SELECT fingerprint_id, ip_address FROM devices WHERE network_scope IS NULL;"
+            )
+            for row in await null_cursor.fetchall():
+                try:
+                    inferred_scope = str(ip_network(f"{row['ip_address']}/24", strict=False))
+                except ValueError:
+                    inferred_scope = "unknown"
+                await db.execute(
+                    "UPDATE devices SET network_scope = ? WHERE fingerprint_id = ?;",
+                    (inferred_scope, row["fingerprint_id"]),
+                )
             await db.commit()
 
     @asynccontextmanager

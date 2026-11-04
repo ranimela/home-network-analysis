@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -108,9 +110,10 @@ def create_app(
         }
 
     @app.get("/api/devices")
-    async def get_devices() -> list[dict[str, Any]]:
-        """Return all discovered devices and associated ports."""
-        return await repository.get_all_devices()
+    async def get_devices(scope: str | None = None) -> list[dict[str, Any]]:
+        """Return discovered devices and associated ports for the currently connected network."""
+        active_scope = scope if scope is not None else detect_local_subnet()
+        return await repository.get_all_devices(network_scope=active_scope)
 
     @app.patch("/api/devices/{fingerprint_id}")
     async def rename_device(fingerprint_id: str, body: DeviceRenameRequest) -> dict[str, Any]:
@@ -130,9 +133,34 @@ def create_app(
         return {"fingerprint_id": fingerprint_id, "custom_name": body.custom_name}
 
     @app.get("/api/logs")
-    async def get_logs(limit: int = 50) -> list[dict[str, Any]]:
-        """Return recent presence transition logs."""
-        return await repository.get_presence_logs(limit=limit)
+    async def get_logs(limit: int = 50, scope: str | None = None) -> list[dict[str, Any]]:
+        """Return recent presence transition logs for the currently connected network."""
+        active_scope = scope if scope is not None else detect_local_subnet()
+        return await repository.get_presence_logs(limit=limit, network_scope=active_scope)
+
+    @app.delete("/api/network/history")
+    async def clear_network_history(
+        scope: str | None = None,
+        only_offline: bool = True,
+    ) -> dict[str, Any]:
+        """Purge historical offline devices (or all devices) for the target or active network."""
+        target_scope = scope if scope is not None else detect_local_subnet()
+        deleted_count = await repository.clear_network_history(
+            target_scope,
+            only_offline=only_offline,
+        )
+        mode_label = "offline historical" if only_offline else "all"
+        await coordinator.broadcast(
+            {
+                "event_type": "HISTORY_CLEARED",
+                "details": f"Cleared {deleted_count} {mode_label} endpoint(s) for {target_scope}",
+            }
+        )
+        return {
+            "network_scope": target_scope,
+            "only_offline": only_offline,
+            "devices_deleted": deleted_count,
+        }
 
     @app.post("/api/scan")
     async def trigger_subnet_scan(body: SubnetScanRequest | None = None) -> dict[str, Any]:
@@ -241,3 +269,15 @@ def create_app(
         )
 
     return app
+
+
+IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+DEFAULT_DB_PATH = (
+    Path(tempfile.gettempdir()) / "network.db" if IS_SERVERLESS else Path("data/network.db")
+)
+
+app = create_app(
+    db_path=DEFAULT_DB_PATH,
+    auto_start_scanner=not IS_SERVERLESS,
+)
+
