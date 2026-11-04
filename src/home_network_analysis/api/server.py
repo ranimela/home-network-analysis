@@ -66,11 +66,19 @@ def create_app(
     repository = NetworkRepository(db_manager)
     scanner = NmapScanner()
     coordinator = ScanCoordinator(scanner, repository, sweep_interval_seconds)
+    db_initialized = False
+
+    async def ensure_db() -> None:
+        """Guarantee SQLite schema exists even if ASGI lifespan was skipped."""
+        nonlocal db_initialized
+        if not db_initialized:
+            await db_manager.initialize()
+            db_initialized = True
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         """Manage background tasks lifecycle."""
-        await db_manager.initialize()
+        await ensure_db()
         app.state.db_manager = db_manager
         app.state.repository = repository
         app.state.scanner = scanner
@@ -112,12 +120,14 @@ def create_app(
     @app.get("/api/devices")
     async def get_devices(scope: str | None = None) -> list[dict[str, Any]]:
         """Return discovered devices and associated ports for the currently connected network."""
+        await ensure_db()
         active_scope = scope if scope is not None else detect_local_subnet()
         return await repository.get_all_devices(network_scope=active_scope)
 
     @app.patch("/api/devices/{fingerprint_id}")
     async def rename_device(fingerprint_id: str, body: DeviceRenameRequest) -> dict[str, Any]:
         """Update the user-defined friendly alias for a specific device."""
+        await ensure_db()
         updated = await repository.update_device_name(fingerprint_id, body.custom_name)
         if not updated:
             raise HTTPException(status_code=404, detail="Device not found")
@@ -135,6 +145,7 @@ def create_app(
     @app.get("/api/logs")
     async def get_logs(limit: int = 50, scope: str | None = None) -> list[dict[str, Any]]:
         """Return recent presence transition logs for the currently connected network."""
+        await ensure_db()
         active_scope = scope if scope is not None else detect_local_subnet()
         return await repository.get_presence_logs(limit=limit, network_scope=active_scope)
 
@@ -144,6 +155,7 @@ def create_app(
         only_offline: bool = True,
     ) -> dict[str, Any]:
         """Purge historical offline devices (or all devices) for the target or active network."""
+        await ensure_db()
         target_scope = scope if scope is not None else detect_local_subnet()
         deleted_count = await repository.clear_network_history(
             target_scope,
@@ -165,6 +177,7 @@ def create_app(
     @app.post("/api/scan")
     async def trigger_subnet_scan(body: SubnetScanRequest | None = None) -> dict[str, Any]:
         """Trigger an immediate subnet discovery pass."""
+        await ensure_db()
         target = body.subnet if body and body.subnet else None
         try:
             snapshot = await coordinator.execute_manual_sweep(target)
@@ -180,6 +193,7 @@ def create_app(
     @app.post("/api/scan/device")
     async def trigger_device_port_scan(body: DeviceScanRequest) -> dict[str, Any]:
         """Execute deep port discovery on a specific host."""
+        await ensure_db()
         try:
             validated_ip = validate_network_target(body.ip_address)
             # Remove /32 if present
@@ -280,4 +294,3 @@ app = create_app(
     db_path=DEFAULT_DB_PATH,
     auto_start_scanner=not IS_SERVERLESS,
 )
-

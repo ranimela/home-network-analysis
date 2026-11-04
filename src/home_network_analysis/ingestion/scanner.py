@@ -231,10 +231,17 @@ class NmapScanner:
         """Initialize scanner with binary path resolution and concurrency lock.
 
         Args:
-            nmap_bin: Explicit path to nmap executable, or None to auto-detect.
+            nmap_bin: Explicit path to nmap executable, or None to auto-detect lazily.
         """
-        self.nmap_bin = nmap_bin or resolve_nmap_executable()
+        self._nmap_bin = nmap_bin
         self._lock = asyncio.Lock()
+
+    @property
+    def nmap_bin(self) -> Path:
+        """Lazily resolve the nmap binary when a scan is invoked."""
+        if self._nmap_bin is None:
+            self._nmap_bin = resolve_nmap_executable()
+        return self._nmap_bin
 
     async def run_discovery_sweep(
         self,
